@@ -1,47 +1,48 @@
-import React, { useState } from "react";
-import * as ort from "onnxruntime-web";
-import { preprocessInput } from "../utils/tokenizer";
+import { useState } from "react";
 
-// Set ONNX Runtime WebAssembly path
-const modelPath = chrome.runtime.getURL("onnx/phishing_model_v4.onnx");
-ort.env.wasm.wasmPaths = chrome.runtime.getURL("ort-wasm/");
+const Popup = () => {
+    const [inputText, setInputText] = useState("");
+    const [result, setResult] = useState("");
 
-const Popup: React.FC = () => {
-  const [inputText, setInputText] = useState("");
-  const [result, setResult] = useState<string | null>(null);
+    const handleCheck = async () => {
+      setResult("Checking...");
+  
+      try {
+        console.log(JSON.stringify({ text: inputText }));
+          const response = await fetch("http://localhost:8000/predict", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: inputText }),
+          });
 
-  const classifyText = async () => {
-    try {
-      const session = await ort.InferenceSession.create(modelPath, { executionProviders: ["wasm"] });
-      const inputTensor = new ort.Tensor("int32", new Int32Array(preprocessInput(inputText).flat()), [1, inputText.split(" ").length]);
-
-      const feeds: Record<string, ort.Tensor> = { input_ids: inputTensor };
-      const output = await session.run(feeds);
-      const prediction = output["logits"].data[0];
-
-      const predictionNumber = Number(prediction);
-      setResult(predictionNumber > 0.5 ? "🚨 Phishing Detected!" : "✅ Safe Message");
-    } catch (error) {
-      console.error("ONNX Runtime Error:", error);
-      setResult("❌ Error running model");
-    }
+          console.log(response)
+          console.log(response.body)
+  
+          if (!response.ok) {
+              throw new Error(`Server error: ${response.status}`);
+          }
+  
+          const data = await response.json();
+          setResult(data.prediction);
+      } catch (error) {
+          console.error("An error occurred:", error);
+          setResult("Error: Unable to connect to the server.");
+      }
   };
 
-  return (
-    <div className="p-4 w-64">
-      <h1 className="text-lg font-bold">Phishing Detector</h1>
-      <textarea
-        className="border p-2 w-full"
-        placeholder="Enter text..."
-        value={inputText}
-        onChange={(e) => setInputText(e.target.value)}
-      />
-      <button className="bg-blue-500 text-white p-2 mt-2 w-full" onClick={classifyText}>
-        Check
-      </button>
-      {result && <p className="mt-2 font-bold">{result}</p>}
-    </div>
-  );
+    return (
+        <div>
+            <h2>Phishing Detector</h2>
+            <input
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                placeholder="Enter text to check"
+            />
+            <button onClick={handleCheck}>Check</button>
+            <p>Result: {result}</p>
+        </div>
+    );
 };
 
 export default Popup;

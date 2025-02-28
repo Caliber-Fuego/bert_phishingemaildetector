@@ -7,6 +7,9 @@
     "default_popup": "index.html"
   },
   "permissions": ["storage"],
+  "host_permissions": [
+    "http://localhost:8000/*"
+  ],
   "web_accessible_resources": [
     {
       "resources": ["onnx/phishing_model.onnx", "ort-wasm/*"],
@@ -14,6 +17,6 @@
     }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; worker-src 'self'"
+    "extension_pages": "script-src 'self'; object-src 'self'"
   }
 }
