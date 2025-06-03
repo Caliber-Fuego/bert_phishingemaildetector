@@ -10,10 +10,14 @@
     "service_worker": "background.js"
   },
   "permissions": [
-    "storage"
+    "storage",
+    "downloads",
+    "activeTab"
   ],
   "host_permissions": [
-    "http://localhost:8000/*"
+    "http://localhost:8000/*",
+    "https://mail.google.com/*"
+
   ],
   "content_scripts": [
     {
