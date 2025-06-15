@@ -1,11 +1,17 @@
-import './App.css'
-import Popup from './components/Popup'
+import { HashRouter as Router, Routes, Route } from "react-router-dom";
+import Popup from "./components/Popup";
+import Dashboard from "./components/dashboard";
 
 function App() {
 
   return (
     <>
-      <Popup />
+      <Router>
+        <Routes>
+          <Route path="/" element={<Popup />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Routes>
+      </Router>
     </>
   )
 }

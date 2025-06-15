@@ -1,11 +1,23 @@
 import { useState } from "react";
 import { parseVTResult } from "./vtStats/parseVTResult";
+import { AttachmentResult } from "../types";
 
 type Attachment = { name: string; url: string };
 
 const AttachmentHandler = () => {
     const [attachments, setAttachments] = useState<Attachment[]>([]);
     const [scanResult, setScanResult] = useState<ReturnType<typeof parseVTResult> | null>(null);
+
+    const saveAttachmentResultToLatestLog = (attachmentResult: AttachmentResult) => {
+        chrome.storage.local.get({ scanLogs: [] }, (storage) => {
+            if (storage.scanLogs.length === 0) return;
+            const latestLog = { ...storage.scanLogs[0] };
+            latestLog.attachments = latestLog.attachments || [];
+            latestLog.attachments.push(attachmentResult);
+            const updatedLogs = [latestLog, ...storage.scanLogs.slice(1)];
+            chrome.storage.local.set({ scanLogs: updatedLogs });
+        });
+    };
 
     const handleGetAttachments = () => {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -45,7 +57,6 @@ const AttachmentHandler = () => {
                     });
 
                     if (response && response.success) {
-                        // Send hash to backend for VirusTotal lookup
                         const vtRes = await fetch("http://localhost:8000/virustotal", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -53,7 +64,12 @@ const AttachmentHandler = () => {
                         });
 
                         const vtData = await vtRes.json();
-                        setScanResult(parseVTResult(vtData));
+                        const vtResult = parseVTResult(vtData);
+                        setScanResult(vtResult);
+                        saveAttachmentResultToLatestLog({
+                            name: att.name,
+                            ...vtResult
+                        });
                     } else {
                         setScanResult({
                             threatCategory: "Failed to fetch or hash attachment.",
@@ -68,46 +84,50 @@ const AttachmentHandler = () => {
     };
 
     return (
-        <div>
-            <h3 style={{ color: "white", marginBottom: "15px" }}>📎 Attachment Scanner</h3>
-            <button
-                onClick={handleGetAttachments}
-                style={{
-                    padding: "10px 20px",
-                    backgroundColor: "#6c757d",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "5px",
-                    cursor: "pointer",
-                    marginBottom: "15px"
-                }}
-            >
-                Get Attachments
-            </button>
+        <div
+            className="rounded p-3"
+            style={{
+                maxWidth: 500,
+                width: "100%",
+                margin: "0 auto",
+                background: "#f4f1fa",
+                color: "#5D3FD3"
+            }}
+        >
+            <h5 className="text-center mb-3" style={{ color: "#40259c" }}>📎 Attachment Scanner</h5>
+            <div className="d-flex justify-content-center mb-3">
+                <button
+                    onClick={handleGetAttachments}
+                    className="btn fw-bold"
+                    style={{
+                        background: "#5D3FD3",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 8,
+                        padding: "10px 28px"
+                    }}
+                >
+                    Get Attachments
+                </button>
+            </div>
 
             {attachments.length > 0 && (
-                <ul style={{ listStyle: "none", padding: 0 }}>
+                <ul className="list-group mb-3">
                     {attachments.map((att, idx) => (
-                        <li key={idx} style={{
-                            padding: "10px",
-                            border: "1px solid #ddd",
-                            borderRadius: "5px",
-                            marginBottom: "10px",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center"
-                        }}>
+                        <li
+                            key={idx}
+                            className="list-group-item d-flex justify-content-between align-items-center"
+                            style={{ background: "#f4f1fa", color: "#5D3FD3", border: "none" }}
+                        >
                             <span>📄 {att.name}</span>
                             <button
                                 onClick={() => handleDownloadAndScan(att)}
+                                className="btn btn-sm fw-bold"
                                 style={{
-                                    padding: "5px 15px",
-                                    backgroundColor: "#dc3545",
-                                    color: "white",
+                                    background: "#5D3FD3",
+                                    color: "#fff",
                                     border: "none",
-                                    borderRadius: "3px",
-                                    cursor: "pointer",
-                                    fontSize: "12px"
+                                    borderRadius: 6
                                 }}
                             >
                                 Scan
@@ -118,29 +138,24 @@ const AttachmentHandler = () => {
             )}
 
             {scanResult && (
-                <div style={{
-                    padding: "10px",
-                    backgroundColor: "#fff3cd",
-                    border: "1px solid #ffeaa7",
-                    borderRadius: "5px",
-                    marginTop: "10px",
-                    color: "black"
-                }}>
-                    {scanResult && (
-                        <div style={{
-                            padding: "10px",
-                            backgroundColor: "#fff3cd",
-                            border: "1px solid #ffeaa7",
-                            borderRadius: "5px",
-                            marginTop: "10px",
-                            color: "black"
-                        }}>
-                            <strong>Scan Result:</strong>
-                            <div>Threat Category: {scanResult.threatCategory}</div>
-                            <div>Threat Family: {scanResult.threatFamily}</div>
-                            <div>Analysis Stats: Malicious: {scanResult.malicious}, Undetected: {scanResult.undetected}</div>
+                <div
+                    className="alert mt-3"
+                    style={{
+                        background: "#fff",
+                        color: "#5D3FD3",
+                        border: "2px solid #5D3FD3"
+                    }}
+                >
+                    <strong style={{ color: "#40259c" }}>Scan Result:</strong>
+                    <div>Threat Category: {scanResult.threatCategory}</div>
+                    <div>Threat Family: {scanResult.threatFamily}</div>
+                    <div>
+                        Analysis Stats:
+                        <div style={{ marginLeft: 16 }}>
+                            <div>Malicious: {scanResult.malicious}</div>
+                            <div>Undetected: {scanResult.undetected}</div>
                         </div>
-                    )}
+                    </div>
                 </div>
             )}
         </div>

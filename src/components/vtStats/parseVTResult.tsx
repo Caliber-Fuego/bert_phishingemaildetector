@@ -1,12 +1,3 @@
-type VTStats = {
-    malicious: number;
-    undetected: number;
-};
-
-type VTThreatName = {
-    value: string;
-    count: number;
-};
 
 type VTResult = {
     threatCategory: string;
@@ -15,27 +6,43 @@ type VTResult = {
     undetected: number;
 };
 
-export function parseVTResult(data: {
-    data: {
-        attributes: {
-            last_analysis_stats: VTStats;
-            popular_threat_classification: {
-                popular_threat_category?: VTThreatName[];
-                popular_threat_name?: VTThreatName[];
+type VirusTotalData = {
+    data?: {
+        attributes?: {
+            last_analysis_stats?: { malicious?: number; undetected?: number };
+            popular_threat_classification?: {
+                popular_threat_category?: { value?: string }[];
+                popular_threat_name?: { value: string }[];
             };
         };
     };
-}): VTResult {
-    const stats = data.data.attributes.last_analysis_stats;
+};
+
+export function parseVTResult(data: VirusTotalData): VTResult {
+    const attr = data?.data?.attributes;
+    const threatClass = attr?.popular_threat_classification;
+
+    if (!attr || !threatClass) {
+        return {
+            threatCategory: "Unknown",
+            threatFamily: "Unknown",
+            malicious: NaN,
+            undetected: NaN
+        };
+    }
+
+    const stats = attr.last_analysis_stats || {};
     const threatCategory =
-        data.data.attributes.popular_threat_classification.popular_threat_category?.[0]?.value || "Unknown";
-    const threatFamilyList = data.data.attributes.popular_threat_classification.popular_threat_name || [];
-    const threatFamily = threatFamilyList.map((f: VTThreatName) => f.value).join(", ") || "Unknown";
+        threatClass.popular_threat_category?.[0]?.value || "Unknown";
+    const threatFamilyList = threatClass.popular_threat_name || [];
+    const threatFamily = Array.isArray(threatFamilyList)
+        ? threatFamilyList.map((f) => f.value).join(", ") || "Unknown"
+        : "Unknown";
 
     return {
         threatCategory,
         threatFamily,
-        malicious: stats.malicious,
-        undetected: stats.undetected
+        malicious: stats.malicious ?? NaN,
+        undetected: stats.undetected ?? NaN
     };
 }
